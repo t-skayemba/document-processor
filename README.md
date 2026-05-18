@@ -37,24 +37,26 @@ Drop in any PDF DocAgent will:
 ## How It Works
 Every document goes through the same pipeline automatically:
 
+```
 Upload PDF
-↓
+  ↓
 Validate (size, type, magic bytes, password check)
-↓
+  ↓
 Detect: text-based or scanned?
-├── Text → extract directly with pdfplumber
-└── Scanned → run OCR (Tesseract or AWS Textract)
-↓
+  ├── Text    → extract directly with pdfplumber
+  └── Scanned → run OCR (Tesseract or AWS Textract)
+  ↓
 Size strategy
-├── Small (< 60k chars) → send directly to Claude
-├── Large (< 400k chars) → chunk → summarise each section → combine
-└── Huge (> 400k chars) → reject with clear message
-↓
+  ├── Small  (< 60k chars)  → send directly to Claude
+  ├── Large  (< 400k chars) → chunk → summarise each section → combine
+  └── Huge   (> 400k chars) → reject with clear message
+  ↓
 Claude extracts structured JSON (up to 3 attempts, stricter prompt each retry)
-↓
+  ↓
 Pydantic validates output schema
-↓
-Return strcutured data + flags + summary
+  ↓
+Return structured data + flags + summary
+```
 
 Scanned PDF detected uses multiple signals - image presence, text object count, character density relative to page area - so sparse-but-valid documents like cover pages and signature pages are not misidentified.
 
@@ -118,6 +120,7 @@ Visit **http://localhost:8501**
 ---
 
 ## Project Structure
+```
 document-processor/
 ├── app.py                    # Streamlit web UI
 ├── styles.py                 # CSS overrides + custom HTML components
@@ -131,7 +134,8 @@ document-processor/
 ├── models/
 │   └── schemas.py            # Pydantic models for all document types
 └── utils/
-└── file_utils.py         # Validation, OCR detection, chunking
+    └── file_utils.py         # Validation, OCR detection, chunking
+```
 
 ---
 
