@@ -4,6 +4,8 @@ Stop missing issues in contracts and invoices. Start catching them instantly.
 
 DocAgent is an AI-powered document analysis tool that processes PDFs (contracts, invoices, legal documents) and returns structured data, risk flags, and plain-English summaries.
 
+🚀 **docagent.tianakayemba.dev** — no setup required, try it live!
+
 ---
 
 # What It Does

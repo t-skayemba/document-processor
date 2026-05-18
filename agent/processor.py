@@ -261,7 +261,7 @@ def process_document(file_bytes: bytes, filename: str) -> ProcessingResult:
     log_step(
         f"✓ Extraction complete - "
         f"{extraction.document_type.value} detected, "
-        f"confidence {extraction.confidence_score: 0%}, "
+        f"confidence {extraction.confidence_score:.0%}, "
         f"{flag_count} flag(s) found"
         + (f" ({critical_count} critical)" if critical_count else "")
     )
