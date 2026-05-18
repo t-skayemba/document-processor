@@ -5,17 +5,17 @@ streamlit==1.35.0
 pdfplumber==0.11.1
 PyPDF2==3.0.1
 pdf2image==1.17.0
-pikepdf==9.1.1
+pikepdf==9.4.0
 
 # OCR
 pytesseract==0.3.13
 Pillow==10.4.0
 
 # LLM
-anthropic==0.28.0
+anthropic==0.40.0
 
 # Data validation
-pydantic==2.7.1
+pydantic==2.9.2
 
 # Utilities
 python-dotenv==1.0.1
