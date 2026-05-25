@@ -34,6 +34,9 @@ def start_health_server(port: int=8502):
     Start the health check server in a background daemon thread.
     Daemon=True means it shuts down automatically when the main process exits.
     """
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    try:
+        server = HTTPServer(("0.0.0.0", port), HealthHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+    except OSError:
+        pass
