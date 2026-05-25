@@ -11,6 +11,8 @@ from styles import (
     SUPPORTED_CHIPS_HTML, file_banner_html, flag_card_html,
     total_block_html, field_row_html, recent_doc_row_html
 )
+from health import start_health_server
+start_health_server()
 
 load_dotenv()
 
