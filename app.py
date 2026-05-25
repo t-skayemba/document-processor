@@ -12,7 +12,9 @@ from styles import (
     total_block_html, field_row_html, recent_doc_row_html
 )
 from health import start_health_server
-start_health_server()
+if "health_server_started" not in st.session_state:
+    start_health_server()
+    st.session_state["health_server_started"] = True
 
 load_dotenv()
 
