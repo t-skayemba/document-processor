@@ -1,4 +1,4 @@
-from agent.validators import _num, merge_flags, validate_invoice
+from agent.validators import _num, drop_contradicted_flags, merge_flags, validate_invoice
 from models.schemas import Flag, FlagSeverity, InvoiceData
 
 LINES = [
@@ -128,3 +128,31 @@ def test_own_flags_do_not_suppress_each_other():
     merged = merge_flags([], validate_invoice(make(subtotal=4500.00, total_amount=5217.20)))
     text = " ".join(f.issue for f in merged)
     assert "Line items add up" in text and "does not match subtotal plus tax" in text
+
+
+def test_contradicted_model_flag_is_dropped_when_line_items_add_up():
+    # Seen live: the model raised "subtotal does not match the sum of line items" while its own
+    # explanation said the figures matched.
+    wrong = Flag(issue="Mathematical discrepancy: subtotal does not match the sum of line items",
+                 severity=FlagSeverity.HIGH, recommendation="Verify.")
+    other = Flag(issue="No purchase order number on the invoice", severity=FlagSeverity.LOW, recommendation="Ask.")
+    kept = drop_contradicted_flags([wrong, other], make(total_amount=5217.20))
+    assert kept == [other]
+
+
+def test_model_total_flag_is_dropped_only_when_the_total_really_is_correct():
+    claim = Flag(issue="Total due appears mathematically incorrect", severity=FlagSeverity.CRITICAL, recommendation="Check.")
+    assert drop_contradicted_flags([claim], make()) == []                          # 4,440 + 577.20 = 5,017.20
+    assert drop_contradicted_flags([claim], make(total_amount=5217.20)) == [claim]  # genuinely wrong: keep
+
+
+def test_real_line_item_mismatch_flag_is_kept():
+    claim = Flag(issue="Subtotal does not match the sum of line items", severity=FlagSeverity.HIGH, recommendation="Check.")
+    inv = make(subtotal=4500.00, tax_amount=585.00, total_amount=5085.00)
+    assert drop_contradicted_flags([claim], inv) == [claim]
+
+
+def test_unrelated_flags_and_missing_invoice_pass_through():
+    flag = Flag(issue="Due date is earlier than the invoice date", severity=FlagSeverity.CRITICAL, recommendation="Fix.")
+    assert drop_contradicted_flags([flag], make()) == [flag]
+    assert drop_contradicted_flags([flag], None) == [flag]

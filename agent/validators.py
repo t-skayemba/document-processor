@@ -8,8 +8,10 @@ total or a missing tax number is caught every time rather than sometimes.
 
 Entry points:
     validate_invoice(inv, document_text="") -> list[Flag]
+    drop_contradicted_flags(flags, inv)     -> list[Flag]  (removes model flags the figures disprove)
     merge_flags(existing, new)              -> list[Flag]  (dedupes, sorts by severity)
 """
+import logging
 import re
 from datetime import date, datetime, timedelta
 from typing import Iterable, List, Optional, Tuple
@@ -24,6 +26,8 @@ TOLERANCE = 0.02
 CANADIAN_TAX_RATES = (0.05, 0.11, 0.12, 0.13, 0.14975, 0.15)
 
 _CANADIAN_TAX_WORDS = re.compile(r"\b(HST|GST|QST|PST)\b", re.IGNORECASE)
+
+logger = logging.getLogger(__name__)
 
 _ORDER = {
     FlagSeverity.CRITICAL: 0,
@@ -260,3 +264,47 @@ def merge_flags(existing: List[Flag], new: List[Flag]) -> List[Flag]:
         if not _already_raised(flag, model_flags):
             merged.append(flag)
     return sorted(merged, key=lambda f: _ORDER[f.severity])
+
+
+# --- removing model flags the figures disprove --------------------------------
+
+_MISMATCH_WORDS = (
+    r"not match|doesn't match|mismatch|discrepan|incorrect|does not add up|doesn't add up|overcharge|error"
+)
+
+
+def drop_contradicted_flags(flags: List[Flag], inv: Optional[InvoiceData]) -> List[Flag]:
+    """
+    The model sometimes raises a math flag whose own explanation says the numbers are fine.
+    When the arithmetic has been verified in code, drop model flags that claim otherwise.
+    Only math claims are touched; every other flag passes through unchanged.
+    """
+    if inv is None:
+        return list(flags)
+
+    subtotal, tax, total = _num(inv.subtotal), _num(inv.tax_amount), _num(inv.total_amount)
+    _, line_totals = _check_line_items(inv)
+
+    lines_ok = (
+        subtotal is not None and bool(line_totals)
+        and abs(round(sum(line_totals), 2) - subtotal) <= TOLERANCE
+    )
+    totals_ok = (
+        subtotal is not None and tax is not None and total is not None
+        and abs(round(subtotal + tax, 2) - total) <= TOLERANCE
+    )
+
+    kept: List[Flag] = []
+    for flag in flags:
+        claims_mismatch = re.search(_MISMATCH_WORDS, flag.issue, re.IGNORECASE)
+        about_lines = re.search(r"\bsubtotal\b", flag.issue, re.IGNORECASE) and re.search(
+            r"line item|sum of", flag.issue, re.IGNORECASE
+        )
+        about_total = re.search(r"\btotal\b", flag.issue, re.IGNORECASE) and not re.search(
+            r"line item|sum of", flag.issue, re.IGNORECASE
+        )
+        if claims_mismatch and ((lines_ok and about_lines) or (totals_ok and about_total)):
+            logger.info(f"Dropped model flag contradicted by verified figures: {flag.issue}")
+            continue
+        kept.append(flag)
+    return kept

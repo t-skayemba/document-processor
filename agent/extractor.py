@@ -7,7 +7,7 @@ import anthropic
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from models.schemas import DocumentExtraction, DocumentType
-from agent.validators import validate_invoice, merge_flags
+from agent.validators import validate_invoice, merge_flags, drop_contradicted_flags
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ def extract_document_data(
             try:
                 if extraction.invoice_data:
                     extraction.flags = merge_flags(
-                        extraction.flags,
+                        drop_contradicted_flags(extraction.flags, extraction.invoice_data),
                         validate_invoice(extraction.invoice_data, document_text),
                     )
             except Exception as check_error:
