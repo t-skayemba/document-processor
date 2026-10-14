@@ -7,6 +7,7 @@ import anthropic
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from models.schemas import DocumentExtraction, DocumentType
+from agent.validators import validate_invoice, merge_flags
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,11 @@ The JSON must follow this exact structure:
         "subtotal": 0.00,
         "tax_amount": 0.00,
         "total_amount": 0.00,
-        "currency": "USD",
+        "currency": "ISO code as printed or clearly implied (CAD, USD, ...), null if unclear",
         "line_items": [{{"description": "...", "quantity": 1, "unit_price": 0.00, "total": 0.00}}],
         "payment_terms": "...",
         "bank_details": "...",
+        "tax_registration_number": "GST/HST/QST number exactly as printed, or null if none is shown",
     }},
     "contract_data": {{ // Inlcude ONLY if document_type is "contract" or "legal"
         "contract_type": "...",
@@ -71,6 +73,11 @@ Document to analyze:
 ---
 {document_text}
 ---
+
+NUMBERS - IMPORTANT:
+- Copy every amount, date and quantity exactly as printed on the document.
+- Do NOT recalculate, correct, round or reconcile any figure, even if it looks wrong. A separate automated check compares the figures.
+- Use null for any figure that is not shown. Never guess.
 
 FLAGS TO LOOK FOR:
 - Missing required fields (no due date, no signatures, etc.)
@@ -222,6 +229,17 @@ def extract_document_data(
             parsed["extraction_method"] = extraction_method
 
             extraction = DocumentExtraction(**parsed)
+
+            # Deterministic checks (totals, line items, dates, tax number).
+            # A failure here must never break extraction, so it is logged and skipped.
+            try:
+                if extraction.invoice_data:
+                    extraction.flags = merge_flags(
+                        extraction.flags,
+                        validate_invoice(extraction.invoice_data, document_text),
+                    )
+            except Exception as check_error:
+                logger.warning(f"Invoice validators skipped: {check_error}")
             logger.info(
                 f"Successfully extracted data from '{filename}' "
                 f"on attempt {attempt}"

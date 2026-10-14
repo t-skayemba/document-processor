@@ -185,7 +185,7 @@ def process_document(file_bytes: bytes, filename: str) -> ProcessingResult:
                 f"from {page_count} pages"
             )
         except Exception as e:
-            return fail (f"Text extraction failed: {str(e)}, job_id=job_id")
+            return fail(f"Text extraction failed: {str(e)}", job_id=job_id)
     
     # guard: did we get usable text?
     if len(document_text.strip()) < 50:
@@ -222,9 +222,9 @@ def process_document(file_bytes: bytes, filename: str) -> ProcessingResult:
             chunks = split_by_natural_boundaries(document_text)
             log_step(
                 f"Split into {len(chunks)} chunks. "
-                f"Summarizing each section with Claude..."
+                f"Summarizing each section..."
             )
-            docuent_text = process_large_document(chunks, filename)
+            document_text = process_large_document(chunks, filename)
             log_step(
                 f"✓ All {len(chunks)} sections summarized - "
                 f"combined summary ready for extraction "
@@ -237,7 +237,7 @@ def process_document(file_bytes: bytes, filename: str) -> ProcessingResult:
                 used_ocr=used_ocr
             )
      # --- STEP 8: LLM Extraction --------------------------------------------------
-    log_step("Setting to Claude for structured extraction and analysis...")
+    log_step("Extracting structured data and running checks...")
     update_job(job_id, JobStatus.PROCESSING)
 
     extraction, error = extract_document_data(

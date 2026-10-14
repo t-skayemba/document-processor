@@ -213,7 +213,7 @@ if uploaded_file is not None:
                 "Checking for password protection...",
                 "Detecting document type...",
                 "Extracting text / running OCR...",
-                "Sending to Claude for analysis...",
+                "Analysing document...",
                 "Validating structured output..."
             ]:
                 st.write(msg)

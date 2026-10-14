@@ -48,6 +48,7 @@ class InvoiceData(BaseModel):
     line_items: Optional[List[dict]] = Field(default_factory=list)
     payment_terms: Optional[str] = None
     bank_details: Optional[str] = None
+    tax_registration_number: Optional[str] = None
 
 class ContractData(BaseModel):
     """Structured data extracted from a contract."""
