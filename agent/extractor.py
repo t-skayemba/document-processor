@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 MODEL = "claude-sonnet-4-6"
 
-# --- PROMPT TEMPLATES -------------------------------------------------------------------------------------------------------------------
+# --- PROMPT TEMPLATES --------------------------------------------------------------------------------------------------------------------
 
 INITIAL_EXTRACTION_PROMPT = """You are a document analysis expert. Analyze the following document and extract  structured information.
 
