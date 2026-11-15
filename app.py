@@ -9,7 +9,7 @@ from models.schemas import ProcessingStatus, FlagSeverity, DocumentType
 from styles import (
     GLOBAL_CSS, TOPBAR_HTML, UPLOAD_HERO_HTML, CAPABILITY_CARDS_HTML,
     SUPPORTED_CHIPS_HTML, file_banner_html, flag_card_html,
-    total_block_html, field_row_html, recent_doc_row_html
+    total_block_html, field_row_html, recent_doc_row_html, table_html
 )
 from health import start_health_server
 start_health_server()
@@ -375,7 +375,7 @@ if "last_result" in st.session_state:
                         )
                     if inv.line_items:
                         st.markdown("**Line items**")
-                        st.dataframe(inv.line_items, use_container_width=True)
+                        st.markdown(table_html(inv.line_items), unsafe_allow_html=True)
 
                 elif ext.document_type in [DocumentType.CONTRACT, DocumentType.LEGAL] \
                         and ext.contract_data:
@@ -479,7 +479,7 @@ if show_queue:
             }
             for j in jobs
         ]
-        st.dataframe(display, use_container_width=True)
+        st.markdown(table_html(display), unsafe_allow_html=True)
     else:
         st.markdown(
             '<div style="font-size:13px;color:#999;">No jobs yet.</div>',

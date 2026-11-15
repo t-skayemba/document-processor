@@ -540,3 +540,61 @@ def recent_doc_row_html(filename: str, doc_type: str, pages: int, method: str, f
         <span style="font-size:11px;color:#bbb;flex-shrink:0;">{time_ago}</span>
     </div>
     """
+
+
+def table_html(rows: list) -> str:
+    """
+    Small HTML table for a list of dicts. Used instead of st.dataframe, which needs pyarrow
+    and fails when the installed pyarrow and numpy versions disagree.
+    Returned as one line with no blank lines so Streamlit's markdown renderer keeps it as HTML.
+    """
+    import html as _html
+
+    rows = [r for r in (rows or []) if isinstance(r, dict)]
+    if not rows:
+        return ""
+
+    columns = []
+    for row in rows:
+        for key in row:
+            if key not in columns:
+                columns.append(key)
+
+    money_keys = {"unit_price", "price", "rate", "total", "amount", "subtotal", "tax"}
+
+    def cell(key, value):
+        if value is None or value == "":
+            return "-"
+        if isinstance(value, bool):
+            return "Yes" if value else "No"
+        if isinstance(value, (int, float)):
+            if key.lower() in money_keys:
+                return f"${value:,.2f}"
+            return f"{value:,.2f}".rstrip("0").rstrip(".") if isinstance(value, float) else str(value)
+        return _html.escape(str(value))
+
+    def is_number(rows_, key):
+        values = [r.get(key) for r in rows_ if r.get(key) not in (None, "")]
+        return bool(values) and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values)
+
+    th = "padding:6px 8px;font-size:11px;font-weight:500;color:#666;text-transform:uppercase;letter-spacing:0.04em;border-bottom:0.5px solid rgba(0,0,0,0.15);"
+    td = "padding:7px 8px;font-size:12px;color:#111;border-bottom:0.5px solid rgba(0,0,0,0.07);"
+
+    head = "".join(
+        f'<th style="{th}text-align:{"right" if is_number(rows, c) else "left"};">'
+        f'{_html.escape(str(c).replace("_", " ").title())}</th>'
+        for c in columns
+    )
+    body = "".join(
+        "<tr>" + "".join(
+            f'<td style="{td}text-align:{"right" if is_number(rows, c) else "left"};">{cell(c, r.get(c))}</td>'
+            for c in columns
+        ) + "</tr>"
+        for r in rows
+    )
+    return (
+        '<div style="overflow-x:auto;margin-top:4px;">'
+        '<table style="width:100%;border-collapse:collapse;">'
+        f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+    )
+
