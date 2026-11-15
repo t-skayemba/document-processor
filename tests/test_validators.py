@@ -156,3 +156,38 @@ def test_unrelated_flags_and_missing_invoice_pass_through():
     flag = Flag(issue="Due date is earlier than the invoice date", severity=FlagSeverity.CRITICAL, recommendation="Fix.")
     assert drop_contradicted_flags([flag], make()) == [flag]
     assert drop_contradicted_flags([flag], None) == [flag]
+
+
+def test_duplicate_is_replaced_by_our_flag_at_the_higher_severity():
+    # Seen live: the model raised the $200 total error as High; our check says Critical.
+    model = Flag(issue="Arithmetic discrepancy: line items sum to $4,440.00 and HST gives a correct total of $5,017.20, "
+                       "but the invoice states $5,217.20 - a $200.00 overcharge",
+                 severity=FlagSeverity.HIGH, recommendation="Request a corrected invoice.")
+    merged = merge_flags([model], validate_invoice(make(total_amount=5217.20)))
+    totals = [f for f in merged if "5,217.20" in f.issue]
+    assert len(totals) == 1                                   # not duplicated
+    assert totals[0].severity == FlagSeverity.CRITICAL        # raised
+    assert "does not match subtotal plus tax" in totals[0].issue
+
+
+def test_misleading_model_title_is_matched_through_its_location():
+    # Seen live: title says "HST calculation" (HST was fine) and only the location mentions the total.
+    model = Flag(issue="Arithmetic discrepancy in HST calculation", severity=FlagSeverity.MEDIUM,
+                 location="HST line and TOTAL DUE line", recommendation="Verify the correct total with the vendor.")
+    merged = merge_flags([model], validate_invoice(make(total_amount=5217.20)))
+    assert [f.severity for f in merged] == [FlagSeverity.CRITICAL]
+    assert "HST calculation" not in merged[0].issue
+
+
+def test_merge_never_lowers_a_model_severity():
+    model = Flag(issue="The total does not match: discrepancy of $0.30 on the invoice total",
+                 severity=FlagSeverity.CRITICAL, recommendation="Check.")
+    merged = merge_flags([model], validate_invoice(make(total_amount=5017.50)))   # small gap -> our flag is High
+    assert [f.severity for f in merged if "total" in f.issue.lower()][0] == FlagSeverity.CRITICAL
+
+
+def test_unrelated_model_flags_are_left_alone():
+    po = Flag(issue="No purchase order or reference number on the invoice", severity=FlagSeverity.LOW,
+              location="Invoice header", recommendation="Include a PO to facilitate matching against procurement records.")
+    merged = merge_flags([po], validate_invoice(make(total_amount=5217.20)))
+    assert po in merged and len(merged) == 2

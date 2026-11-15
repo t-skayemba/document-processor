@@ -249,21 +249,46 @@ def _matches(text: str, rule: Tuple[str, str]) -> bool:
     return all(re.search(pattern, text, re.IGNORECASE) for pattern in rule)
 
 
-def _already_raised(new: Flag, model_flags: Iterable[Flag]) -> bool:
+def _model_flag_text(flag: Flag) -> str:
+    """Title plus location: model flags often put the useful words (e.g. 'TOTAL DUE line') in the location."""
+    return f"{flag.issue} {flag.location or ''}"
+
+
+def _matching_indexes(new: Flag, model_flags: List[Flag]) -> List[int]:
+    """Positions of model flags that describe the same issue as `new`."""
+    found = set()
     for rule in _DUPLICATE_RULES:
-        if _matches(new.issue, rule) and any(_matches(old.issue, rule) for old in model_flags):
-            return True
-    return False
+        if _matches(new.issue, rule):
+            found.update(i for i, old in enumerate(model_flags) if _matches(_model_flag_text(old), rule))
+    return sorted(found)
 
 
 def merge_flags(existing: List[Flag], new: List[Flag]) -> List[Flag]:
-    """Add checks the model did not already raise, then sort most severe first."""
+    """
+    Combine the model's flags with the deterministic ones, most severe first.
+
+    When both describe the same issue, our computed flag replaces the model's (its wording is
+    exact, and the model's title is sometimes misleading) and takes the higher of the two
+    severities, so the model can never understate a verified problem. A model flag is only
+    consumed once; two different checks never swallow each other.
+    """
     model_flags = list(existing)
-    merged = list(model_flags)
+    merged = list(existing)
+    removed: set = set()
+    claimed: set = set()
+
     for flag in new:
-        if not _already_raised(flag, model_flags):
+        matches = _matching_indexes(flag, model_flags)
+        free = [i for i in matches if i not in claimed]
+        if not matches or not free:
             merged.append(flag)
-    return sorted(merged, key=lambda f: _ORDER[f.severity])
+            continue
+        best = min([flag.severity] + [model_flags[i].severity for i in free], key=lambda sev: _ORDER[sev])
+        merged[free[0]] = flag if best == flag.severity else flag.model_copy(update={"severity": best})
+        removed.update(free[1:])
+        claimed.update(free)
+
+    return sorted((f for i, f in enumerate(merged) if i not in removed), key=lambda f: _ORDER[f.severity])
 
 
 # --- removing model flags the figures disprove --------------------------------
